@@ -1,0 +1,25 @@
+---
+title: Analyzing Music Data
+author: Angela Davaadorj
+execute:
+  echo: false
+---
+
+```{r}
+#| message: false
+library(tidyverse)
+```
+
+```{r}
+billboard |>
+  select(artist, track, date.entered, wk1:wk4) |>
+  print()
+```
+
+```{r}
+billboard |>
+  summarize(
+    earliest_date = min(date.entered),
+    latest_date = max(date.entered)
+  )
+```

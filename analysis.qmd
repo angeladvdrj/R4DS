@@ -23,3 +23,194 @@ billboard |>
     latest_date = max(date.entered)
   )
 ```
+
+```{r}
+wk1_data <- billboard |>
+  select(wk1) |>
+  drop_na()
+
+wk1_data |>
+  ggplot(aes(x = wk1)) +
+  geom_histogram(
+    aes(fill = after_stat(x)),
+    binwidth = 5,
+    boundary = 0,
+    color = "white",
+    linewidth = 0.4
+  ) +
+  scale_fill_gradientn(
+    colors = c("#fce4ec", "#f48fb1", "#ec407a", "#ad1457"),
+    guide = "none"
+  ) +
+  labs(
+    title = "Week 1 Billboard rankings",
+    subtitle = paste("Number of values used:", nrow(wk1_data)),
+    x = "Week 1 ranking",
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(color = "#ad1457", face = "bold"),
+    plot.subtitle = element_text(color = "#c2185b")
+  )
+```
+
+```{r}
+wk6_data <- billboard |>
+  select(wk6) |>
+  drop_na()
+
+wk6_data |>
+  ggplot(aes(x = wk6)) +
+  geom_histogram(
+    aes(fill = after_stat(x)),
+    binwidth = 5,
+    boundary = 0,
+    color = "white",
+    linewidth = 0.4
+  ) +
+  scale_fill_gradientn(
+    colors = c("#fce4ec", "#f48fb1", "#ec407a", "#ad1457"),
+    guide = "none"
+  ) +
+  labs(
+    title = "Week 6 Billboard rankings",
+    subtitle = paste("Number of values used:", nrow(wk6_data)),
+    x = "Week 6 ranking",
+    y = "Count"
+  ) +
+  theme_minimal(base_size = 13) +
+  theme(
+    plot.title = element_text(color = "#ad1457", face = "bold"),
+    plot.subtitle = element_text(color = "#c2185b")
+  )
+```
+
+```{r}
+billboard |>
+  pivot_longer(
+    cols = c(wk1, wk4, wk10, wk20, wk40, wk76),
+    names_to = "week",
+    values_to = "rank"
+  ) |>
+  summarize(
+    present = sum(!is.na(rank)),
+    missing = sum(is.na(rank)),
+    .by = week
+  )
+```
+
+```{r}
+song_changes <- billboard |>
+  mutate(
+    status = case_when(
+      is.na(wk6) ~ "missing by week 6",
+      wk6 < wk1  ~ "improved",
+      wk6 == wk1 ~ "stayed the same",
+      wk6 > wk1  ~ "got worse"
+    )
+  )
+
+# Count songs by status
+song_changes |>
+  count(status)
+
+# Median rank change for songs present in both weeks (wk1 - wk6)
+song_changes |>
+  filter(!is.na(wk6)) |>
+  summarize(
+    median_rank_change = median(wk1 - wk6)
+  )
+```
+
+```{r}
+billboard_longer <- billboard |>
+  pivot_longer(
+    cols = starts_with("wk"),
+    names_to = "week",
+    values_to = "rank",
+    values_drop_na = TRUE
+  ) |>
+  mutate(
+    week = parse_number(week)
+  )
+
+billboard_longer |>
+  ggplot(aes(x = week, y = rank, group = track)) +
+  geom_line(alpha = 0.25) +
+  scale_y_reverse() +
+  labs(
+    title = "Billboard Song Rankings Over Time",
+    x = "Week",
+    y = "Rank"
+  ) +
+  theme_minimal()
+```
+
+```{r}
+billboard_longer |>
+  summarize(
+    reentered = any(diff(week) > 1),
+    .by = c(artist, track)
+  ) |>
+  count(reentered)
+```
+
+```{r}
+song_summary <- billboard_longer |>
+  summarize(
+    first_rank = rank[which.min(week)],
+    best_rank = min(rank),
+    first_week_best = min(week[rank == min(rank)]),
+    total_weeks = n(),
+    .by = c(artist, track)
+  )
+
+# Print first few rows of summary
+head(song_summary)
+
+# Notable top-10 songs
+bind_rows(
+  song_summary |> filter(best_rank == 1) |> slice_min(first_week_best, n = 1) |> mutate(notable = "Fastest to #1"),
+  song_summary |> filter(best_rank == 1) |> slice_max(first_week_best, n = 1) |> mutate(notable = "Slowest to #1"),
+  song_summary |> filter(best_rank <= 10) |> slice_max(total_weeks, n = 1) |> mutate(notable = "Longest run (Top 10)")
+) |>
+  select(notable, artist, track, first_rank, best_rank, first_week_best, total_weeks)
+```
+
+```{r}
+top10_data <- billboard_longer |>
+  semi_join(song_summary |> filter(best_rank <= 10), by = c("artist", "track"))
+
+notable_data <- top10_data |>
+  filter(
+    (artist == "Madonna" & track == "Music") |
+    (artist == "Lonestar" & track == "Amazed") |
+    (artist == "Creed" & track == "Higher")
+  ) |>
+  mutate(
+    song_label = paste0(artist, " - \"", track, "\"")
+  )
+
+ggplot() +
+  geom_line(
+    data = top10_data,
+    aes(x = week, y = rank, group = track),
+    color = "gray80",
+    linewidth = 0.5
+  ) +
+  geom_line(
+    data = notable_data,
+    aes(x = week, y = rank, color = song_label),
+    linewidth = 1.1
+  ) +
+  scale_y_reverse() +
+  labs(
+    title = "Top-10 Billboard Song Rankings Over Time",
+    subtitle = "Three notable songs highlighted against all top-10 tracks",
+    x = "Week",
+    y = "Rank",
+    color = "Notable song"
+  ) +
+  theme_minimal()
+```

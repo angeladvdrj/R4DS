@@ -214,3 +214,105 @@ ggplot() +
   ) +
   theme_minimal()
 ```
+
+```{r}
+#| cache: true
+music <- read_csv("data/music.csv", show_col_types = FALSE)
+```
+
+```{r}
+names(music)
+```
+
+```{r}
+music |>
+  select(starts_with("artist")) |>
+  glimpse()
+```
+
+```{r}
+music |>
+  select(
+    artist.name,
+    artist.location,
+    artist.latitude,
+    artist.longitude,
+    artist.terms,
+    artist.familiarity,
+    artist.hotttnesss,
+    song.title,
+    song.year
+  ) |>
+  slice_head(n = 8)
+```
+
+```{r}
+music |>
+  select(artist.familiarity, artist.hotttnesss, song.year, song.tempo) |>
+  summary()
+```
+
+```{r}
+music |>
+  filter(song.year > 0) |>
+  ggplot(aes(x = song.year)) +
+  geom_histogram(binwidth = 5, fill = "steelblue", color = "white") +
+  labs(
+    title = "Distribution of songs by release year",
+    subtitle = "n = 4,680 songs with a recorded release year",
+    x = "Release year",
+    y = "Number of songs",
+    caption = "Source: Million Song Dataset (teaching sample)"
+  )
+```
+
+```{r}
+music |>
+  summarise(
+    rows = n(),
+    artist_location_zero = sum(artist.location == "0" | is.na(artist.location)),
+    release_name_zero = sum(release.name == "0" | is.na(release.name)),
+    song_title_zero = sum(song.title == "0" | is.na(song.title)),
+    song_year_zero = sum(song.year == 0 | is.na(song.year)),
+    familiarity_zero = sum(artist.familiarity <= 0, na.rm = TRUE),
+    hotttnesss_zero = sum(artist.hotttnesss <= 0, na.rm = TRUE)
+  )
+```
+
+```{r}
+music |>
+  summarise(
+    total = n(),
+    placeholder_coords = sum(artist.latitude == 0 & artist.longitude == 0),
+    usable_coords = sum(!(artist.latitude == 0 & artist.longitude == 0))
+  )
+```
+
+```{r}
+world <- map_data("world")
+
+music |>
+  filter(!(artist.latitude == 0 & artist.longitude == 0), song.year > 0) |>
+  ggplot() +
+  geom_map(
+    data = world, map = world,
+    aes(map_id = region),
+    fill = "gray90", color = "gray70", linewidth = 0.2
+  ) +
+  geom_point(
+    aes(x = artist.longitude, y = artist.latitude, color = song.year),
+    alpha = 0.5, size = 0.7
+  ) +
+  expand_limits(x = world$long, y = world$lat) +
+  scale_color_viridis_c(option = "plasma", name = "Year") +
+  labs(
+    title = "Song release year by artist location",
+    subtitle = "Older recordings concentrate in the US and UK; newer recordings spread more globally",
+    x = NULL,
+    y = NULL,
+    caption = "Source: Million Song Dataset teaching CSV"
+  ) +
+  theme_minimal() +
+  theme(axis.text = element_blank(), axis.ticks = element_blank())
+```
+
